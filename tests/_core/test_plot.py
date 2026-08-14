@@ -941,10 +941,10 @@ class TestPlotting:
 
         p = Plot()
         # You'd think matplotlib would raise a TypeError here, but it doesn't
-        with pytest.raises(ValueError, match="Key axes.linewidth:"):
+        with pytest.raises(ValueError, match=r"Key axes\.linewidth:"):
             p.theme({"axes.linewidth": "thick"})
 
-        with pytest.raises(KeyError, match="not.a.key is not a valid rc"):
+        with pytest.raises(KeyError, match=r".?not\.a\.key.? is not a valid.+rcParam"):
             p.theme({"not.a.key": True})
 
     def test_stat(self, long_df):
@@ -1091,19 +1091,11 @@ class TestPlotting:
         p = Plot().layout(size=size).plot()
         assert tuple(p._figure.get_size_inches()) == size
 
-    @pytest.mark.skipif(
-        _version_predates(mpl, "3.6"),
-        reason="mpl<3.6 does not have get_layout_engine",
-    )
     def test_layout_extent(self):
 
         p = Plot().layout(extent=(.1, .2, .6, 1)).plot()
         assert p._figure.get_layout_engine().get()["rect"] == [.1, .2, .5, .8]
 
-    @pytest.mark.skipif(
-        _version_predates(mpl, "3.6"),
-        reason="mpl<3.6 does not have get_layout_engine",
-    )
     def test_constrained_layout_extent(self):
 
         p = Plot().layout(engine="constrained", extent=(.1, .2, .6, 1)).plot()
@@ -1168,10 +1160,6 @@ class TestPlotting:
         with pytest.raises(RuntimeError, match="Cannot create multiple subplots"):
             p2.plot()
 
-    @pytest.mark.skipif(
-        _version_predates(mpl, "3.6"),
-        reason="Requires newer matplotlib layout engine API"
-    )
     def test_on_layout_algo_default(self):
 
         class MockEngine(mpl.layout_engine.ConstrainedLayoutEngine):
@@ -1182,10 +1170,6 @@ class TestPlotting:
         layout_engine = p._figure.get_layout_engine()
         assert layout_engine.__class__.__name__ == "MockEngine"
 
-    @pytest.mark.skipif(
-        _version_predates(mpl, "3.6"),
-        reason="Requires newer matplotlib layout engine API"
-    )
     def test_on_layout_algo_spec(self):
 
         f = mpl.figure.Figure(layout="constrained")
@@ -1782,6 +1766,13 @@ class TestPairInterface:
 
 class TestLabelVisibility:
 
+    def has_xaxis_labels(self, ax):
+        if _version_predates(mpl, "3.10"):
+            # They made it labelbottom in 3.10?
+            return ax.xaxis.get_tick_params()["labelleft"]
+        else:
+            return ax.xaxis.get_tick_params()["labelbottom"]
+
     def test_single_subplot(self, long_df):
 
         x, y = "a", "z"
@@ -1852,12 +1843,7 @@ class TestLabelVisibility:
         for s in subplots[1:]:
             ax = s["ax"]
             assert ax.xaxis.get_label().get_visible()
-            # mpl3.7 added a getter for tick params, but both yaxis and xaxis return
-            # the same entry of "labelleft" instead of  "labelbottom" for xaxis
-            if not _version_predates(mpl, "3.7"):
-                assert ax.xaxis.get_tick_params()["labelleft"]
-            else:
-                assert len(ax.get_xticklabels()) > 0
+            assert self.has_xaxis_labels(ax)
             assert all(t.get_visible() for t in ax.get_xticklabels())
 
         for s in subplots[1:-1]:
@@ -1882,12 +1868,7 @@ class TestLabelVisibility:
         for s in subplots[-2:]:
             ax = s["ax"]
             assert ax.xaxis.get_label().get_visible()
-            # mpl3.7 added a getter for tick params, but both yaxis and xaxis return
-            # the same entry of "labelleft" instead of  "labelbottom" for xaxis
-            if not _version_predates(mpl, "3.7"):
-                assert ax.xaxis.get_tick_params()["labelleft"]
-            else:
-                assert len(ax.get_xticklabels()) > 0
+            assert self.has_xaxis_labels(ax)
             assert all(t.get_visible() for t in ax.get_xticklabels())
 
         for s in subplots[:-2]:
@@ -2117,10 +2098,9 @@ class TestLegend:
         labels = [t.get_text() for t in legend.get_texts()]
         assert labels == names
 
-        if not _version_predates(mpl, "3.5"):
-            contents = legend.get_children()[0]
-            assert len(contents.findobj(mpl.lines.Line2D)) == len(names)
-            assert len(contents.findobj(mpl.patches.Patch)) == len(names)
+        contents = legend.get_children()[0]
+        assert len(contents.findobj(mpl.lines.Line2D)) == len(names)
+        assert len(contents.findobj(mpl.patches.Patch)) == len(names)
 
     def test_three_layers(self, xy):
 

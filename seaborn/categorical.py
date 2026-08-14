@@ -626,6 +626,8 @@ class _CategoricalPlotter(VectorPlotter):
         props["whisker"].setdefault("solid_capstyle", "butt")
         props["flier"].setdefault("markersize", fliersize)
 
+        orientation = {"x": "vertical", "y": "horizontal"}[self.orient]
+
         ax = self.ax
 
         for sub_vars, sub_data in self.iter_data(iter_vars,
@@ -682,19 +684,20 @@ class _CategoricalPlotter(VectorPlotter):
                 # Set width to 0 to avoid going out of domain
                 widths=data["width"] if linear_orient_scale else 0,
                 patch_artist=fill,
-                vert=self.orient == "x",
                 manage_ticks=False,
                 boxprops=boxprops,
                 medianprops=medianprops,
                 whiskerprops=whiskerprops,
                 flierprops=flierprops,
                 capprops=capprops,
-                # Added in matplotlib 3.6.0; see below
-                # capwidths=capwidth,
+                # Added in matplotlib 3.10; see below
+                # orientation=orientation
                 **(
-                    {} if _version_predates(mpl, "3.6.0")
-                    else {"capwidths": capwidth}
-                )
+                    {"vert": orientation == "vertical"}
+                    if _version_predates(mpl, "3.10.0")
+                    else {"orientation": orientation}
+                ),
+                capwidths=capwidth,
             )
             boxplot_kws = {**default_kws, **plot_kws}
             artists = ax.bxp(**boxplot_kws)
@@ -2015,7 +2018,7 @@ boxenplot.__doc__ = dedent("""\
 
         - `"tukey"`: Use log2(n) - 3 levels, covering similar range as boxplot whiskers
         - `"proportion"`: Leave approximately `outlier_prop` fliers
-        - `"trusthworthy"`: Extend to level with confidence of at least `trust_alpha`
+        - `"trustworthy"`: Extend to level with confidence of at least `trust_alpha`
         - `"full"`: Use log2(n) + 1 levels and extend to most extreme points
     outlier_prop : float
         Proportion of data expected to be outliers; used when `k_depth="proportion"`.
